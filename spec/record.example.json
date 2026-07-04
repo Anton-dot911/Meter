@@ -1,0 +1,14 @@
+{
+  "ts": "2026-07-02T10:15:00Z",
+  "project": "docflow",
+  "component": "extract_invoice",
+  "model": "claude-sonnet-4-6",
+  "tokens_in": 1234,
+  "tokens_out": 456,
+  "cost_usd": 0.01054,
+  "latency_ms": 2380,
+  "status": "ok",
+  "error_type": null,
+  "request_id": "req_011CNHa8f9X2mkuVdFJQnpqZ",
+  "trace_id": null
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/anton-dot911/meter/spec/record.schema.json",
+  "title": "Meter LLM call record",
+  "description": "Canonical shape of one LLM call record written to the llm_calls table. Both the TS and Python packages MUST produce records matching this schema byte-compatibly: same field names, same units (usd, ms), same enums. Source of truth per docs/PLAN.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "project",
+    "component",
+    "model",
+    "tokens_in",
+    "tokens_out",
+    "cost_usd",
+    "latency_ms",
+    "status",
+    "error_type",
+    "request_id",
+    "trace_id"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Call timestamp, ISO 8601 UTC (e.g. 2026-07-02T10:15:00Z)."
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "description": "Lowercase slug identifying the project (e.g. \"docflow\")."
+    },
+    "component": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "description": "Lowercase slug identifying the component within the project (e.g. \"extract_invoice\")."
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Model ID as reported by the SDK response (e.g. \"claude-sonnet-4-6\")."
+    },
+    "tokens_in": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Input tokens from response usage. Null when usage is unavailable (e.g. the call errored before a response)."
+    },
+    "tokens_out": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Output tokens from response usage. Null when usage is unavailable."
+    },
+    "cost_usd": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Cost in USD, rounded to 5 decimals, computed from spec/prices.json. Null if the model is unknown in prices.json (record is still written, never estimated)."
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock latency of the call in milliseconds."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "error", "retried"],
+      "description": "Call outcome. \"retried\" is reported explicitly by the host app's llm client (scaffolder contract); the wrapper itself never retries."
+    },
+    "error_type": {
+      "type": ["string", "null"],
+      "description": "Error classification when status is \"error\", e.g. \"rate_limit\", \"timeout\", \"validation\", \"api_error\". Null when the call succeeded."
+    },
+    "request_id": {
+      "type": ["string", "null"],
+      "description": "Request ID from SDK response headers when available (e.g. \"req_...\")."
+    },
+    "trace_id": {
+      "type": ["string", "null"],
+      "description": "Optional external correlation id (e.g. Conveyor process trace)."
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Meter dashboard — one page: filters, stat cards, daily cost chart, recent calls, top components (React + Vite + Tailwind, Netlify). Implementation lands in T5; React/Vite/Tailwind deps are added then.",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'dashboard is a stub until T5 (docs/PLAN.md)' && exit 1",
+    "build": "echo 'dashboard is a stub until T5 (docs/PLAN.md)' && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

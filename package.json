@@ -1,0 +1,12 @@
+{
+  "name": "meter",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test:spec": "node scripts/validate-spec.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  }
+}
