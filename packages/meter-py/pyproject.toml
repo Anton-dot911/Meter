@@ -3,10 +3,14 @@ name = "meter"
 version = "0.0.0"
 description = "Meter — fire-and-forget cost/latency tracking wrapper around the Anthropic SDK (Python). Installed via VCS URL."
 requires-python = ">=3.11"
-dependencies = []
+# Runtime: supabase client only (mirrors meter-ts, whose sole runtime dep is
+# @supabase/supabase-js). The Anthropic SDK is a type-only / peer dependency —
+# the wrapper duck-types the client and never imports anthropic at runtime — so
+# it lives in the dev group alongside pytest for the tests and @llm smoke.
+dependencies = ["supabase>=2"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "anthropic>=0.40", "jsonschema>=4"]
 
 [tool.pytest.ini_options]
 markers = [
