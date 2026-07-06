@@ -24,10 +24,14 @@ import { SupabaseTransport } from "../src/transport.js";
 import type { MeterRecord, Transport } from "../src/types.js";
 
 const SUPA_URL = process.env.METER_SUPABASE_URL ?? process.env.SUPABASE_URL;
+// The smoke performs a real INSERT and read-back. Under the owner-only RLS on
+// llm_calls the anon key is rejected ("new row violates row-level security
+// policy"), so prefer a write-capable service-role key here; fall back to anon
+// only if that is all that is configured.
 const SUPA_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
   process.env.METER_SUPABASE_ANON_KEY ??
-  process.env.SUPABASE_ANON_KEY ??
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_ANON_KEY;
 const TABLE = process.env.METER_TABLE ?? "llm_calls";
 // Some hosts (e.g. Claude Code cloud sessions) strip the reserved
 // ANTHROPIC_API_KEY from the runtime; METER_ANTHROPIC_API_KEY is an
@@ -70,7 +74,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
   it(
     "@llm records a real non-streaming call",
     async () => {
-      const transport = new Awaitable(new SupabaseTransport({ table: TABLE }));
+      const transport = new Awaitable(new SupabaseTransport({ table: TABLE, url: SUPA_URL, key: SUPA_KEY }));
       const client = meteredClient(new Anthropic({ apiKey: ANTHROPIC_KEY }), { ...CFG, transport });
 
       const response = await client.messages.create({
@@ -105,7 +109,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
   it(
     "@llm records a real streaming call after the stream ends",
     async () => {
-      const transport = new Awaitable(new SupabaseTransport({ table: TABLE }));
+      const transport = new Awaitable(new SupabaseTransport({ table: TABLE, url: SUPA_URL, key: SUPA_KEY }));
       const client = meteredClient(new Anthropic({ apiKey: ANTHROPIC_KEY }), { ...CFG, transport });
 
       const stream = (await client.messages.create({
