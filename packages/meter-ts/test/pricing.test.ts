@@ -29,8 +29,19 @@ describe("computeCost", () => {
     expect(computeCost("claude-sonnet-4-6", 1, 1, prices)).toBe(0.00002);
   });
 
+  it("prices a dated snapshot id via its alias", () => {
+    // The API records the resolved snapshot (e.g. claude-haiku-4-5-20251001);
+    // it must cost the same as the alias claude-haiku-4-5.
+    expect(computeCost("claude-haiku-4-5-20251001", 1_000_000, 1_000_000, prices)).toBe(
+      computeCost("claude-haiku-4-5", 1_000_000, 1_000_000, prices),
+    );
+    expect(computeCost("claude-haiku-4-5-20251001", 1_000_000, 1_000_000, prices)).toBe(6);
+  });
+
   it("returns null for a model missing from prices.json (Hard Rule 5)", () => {
     expect(computeCost("gpt-oops", 1000, 1000, prices)).toBeNull();
+    // An unknown alias with a date suffix must not be estimated either.
+    expect(computeCost("gpt-oops-20251001", 1000, 1000, prices)).toBeNull();
   });
 
   it("returns null when usage is unavailable", () => {

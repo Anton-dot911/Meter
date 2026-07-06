@@ -41,6 +41,9 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? process.env.METER_ANTHROP
 const HAS_CREDS = Boolean(ANTHROPIC_KEY && SUPA_URL && SUPA_KEY);
 
 const MODEL = "claude-haiku-4-5";
+// The API resolves the alias to a dated snapshot (e.g. claude-haiku-4-5-20251001)
+// and the meter records that resolved id, so assert on the alias prefix.
+const MODEL_RE = new RegExp(`^${MODEL}(-\\d{8})?$`);
 const CFG = { project: "meter", component: "ts_smoke" };
 
 /** Wraps a transport so the test can await the fire-and-forget send. */
@@ -88,7 +91,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
 
       const rec = transport.last!;
       expect(rec.status).toBe("ok");
-      expect(rec.model).toBe(MODEL);
+      expect(rec.model).toMatch(MODEL_RE);
       expect(rec.tokens_in).toBeGreaterThan(0);
       expect(rec.tokens_out).toBeGreaterThan(0);
       expect(typeof rec.cost_usd).toBe("number"); // haiku is a known model
@@ -99,7 +102,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
       expect(row, "row should be readable back from Supabase").not.toBeNull();
       expect(row!.project).toBe("meter");
       expect(row!.component).toBe("ts_smoke");
-      expect(row!.model).toBe(MODEL);
+      expect(row!.model).toMatch(MODEL_RE);
       // eslint-disable-next-line no-console
       console.log(`[@llm] wrote non-streaming row request_id=${rec.request_id} cost=$${rec.cost_usd}`);
     },
@@ -127,11 +130,11 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
 
       const rec = transport.last!;
       expect(rec.status).toBe("ok");
-      expect(rec.model).toBe(MODEL);
+      expect(rec.model).toMatch(MODEL_RE);
       expect(rec.tokens_in).toBeGreaterThan(0); // from message_start
       expect(rec.tokens_out).toBeGreaterThan(0); // from final message_delta
       expect(typeof rec.cost_usd).toBe("number");
-      expect(rec.request_id).toBeTruthy();
+      expect(rec.request_id).toBeTruthy(); // captured from the request-id header
 
       const row = await readBack(rec.request_id!);
       expect(row, "streamed row should be readable back from Supabase").not.toBeNull();
