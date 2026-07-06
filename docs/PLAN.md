@@ -96,13 +96,14 @@ Filters: project (multi), period (7/30/90d, custom). Widgets:
 
 ## Tasks
 
-**T1. Spec + migration.**
+**T1. Spec + migration.** ✅ done (PR #1)
 `record.schema.json`, `record.example.json`, `prices.json` (current models, verified against docs.claude.com, with `as_of`), migration applied, monorepo scaffold (via antlab-create ts-cli/py templates as base).
 DoD: migration applies cleanly; `pnpm test:spec` validates example against schema.
 
-**T2. meter-ts.**
+**T2. meter-ts.** ✅ done (PR #2, merged to main)
 Proxy wrapper (non-streaming + streaming), pricing, SupabaseTransport + JsonlFallback, `record()` export. Full unit suite incl. transport-down test and unknown-model test.
 DoD: tests green; manual `@llm` smoke writes a real row.
+Status: `pnpm -F meter-ts test` → 20 passed (2 `@llm` skipped), `build` clean, `pnpm test:spec` green. Supabase write path verified live end-to-end against the real `llm_calls` table via the shipped `SupabaseTransport` (probe row inserted, read back, deleted). The real-API `@llm` smoke row is still pending: Claude Code cloud sessions strip the reserved `ANTHROPIC_API_KEY` from the runtime, so it never reaches the smoke. To run it: (a) forward the key under the unreserved alias `METER_ANTHROPIC_API_KEY` from the environment **Setup script** (`export METER_ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"`) — the smoke reads that alias; (b) provide a **write-capable Supabase key** (`SUPABASE_SERVICE_ROLE_KEY`) — the owner-only RLS on `llm_calls` rejects anon inserts (`new row violates row-level security policy`), verified empirically, so the smoke now prefers the service-role key. Then start a **new** session and run `pnpm -F meter-ts test:llm`. NOTE for T3/T4: the library's *default* transport also uses the anon key, so real host-app writes need either an RLS INSERT policy for the anon role or a service-role key server-side — decide during Scaffolder integration.
 
 **T3. meter-py.**
 Mirror implementation; cross-validate output against `record.example.json`.
