@@ -84,6 +84,15 @@ interface CreateParams {
   stream?: boolean;
 }
 
+/** The subset of the SDK's APIPromise the meter uses to read the request-id header. */
+interface WithResponse {
+  withResponse(): Promise<{ data: unknown; request_id?: string | null }>;
+}
+
+function hasWithResponse(value: unknown): value is WithResponse {
+  return typeof (value as { withResponse?: unknown })?.withResponse === "function";
+}
+
 async function meteredCreate(
   messages: Anthropic["messages"],
   params: CreateParams,
@@ -124,8 +133,21 @@ async function meteredCreate(
   };
 
   let result: unknown;
+  // The SDK attaches _request_id to a non-streaming response, but a raw
+  // Stream carries no request id — it lives only on the `request-id` response
+  // header, reachable via APIPromise.withResponse(). Capturing it here means
+  // streamed rows are traceable too. withResponse() returns the same parsed
+  // value as awaiting the promise, so the host still sees an unchanged object.
+  let headerRequestId: string | null = null;
   try {
-    result = await messages.create(params as never, options as never);
+    const pending: unknown = messages.create(params as never, options as never);
+    if (hasWithResponse(pending)) {
+      const wr = await pending.withResponse();
+      result = wr.data;
+      headerRequestId = wr.request_id ?? null;
+    } else {
+      result = await (pending as Promise<unknown>);
+    }
   } catch (err) {
     emit({
       model: params?.model,
@@ -139,7 +161,7 @@ async function meteredCreate(
   }
 
   if (params?.stream) {
-    return wrapStream(result as AsyncIterable<StreamEvent>, (usage, err) => {
+    return wrapStream(result as AsyncIterable<StreamEvent>, headerRequestId, (usage, err) => {
       emit({
         model: usage.model,
         tokens_in: usage.inputTokens,
@@ -162,7 +184,7 @@ async function meteredCreate(
     tokens_out: response?.usage?.output_tokens ?? null,
     status: "ok",
     error_type: null,
-    request_id: response?._request_id ?? null,
+    request_id: response?._request_id ?? headerRequestId,
   });
   return result;
 }
@@ -210,13 +232,16 @@ interface StreamUsage {
 
 function wrapStream<S extends AsyncIterable<StreamEvent>>(
   stream: S,
+  seedRequestId: string | null,
   onEnd: (usage: StreamUsage, err?: unknown) => void,
 ): S {
   const usage: StreamUsage = {
     model: null,
     inputTokens: null,
     outputTokens: null,
-    requestId: (stream as { _request_id?: string | null })?._request_id ?? null,
+    // Prefer the request-id header captured from the create call; fall back to
+    // _request_id (set on the SDK's higher-level MessageStream and test fakes).
+    requestId: seedRequestId ?? (stream as { _request_id?: string | null })?._request_id ?? null,
   };
   let ended = false;
   const finish = (err?: unknown): void => {

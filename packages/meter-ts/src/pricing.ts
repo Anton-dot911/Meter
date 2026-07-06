@@ -41,6 +41,20 @@ function findSpecPrices(): string {
 }
 
 /**
+ * Look up a model in the price table. The Anthropic API resolves an alias
+ * (`claude-haiku-4-5`) to a dated snapshot (`claude-haiku-4-5-20251001`) in
+ * the response, and that resolved id is what the meter records. prices.json is
+ * keyed by alias, so fall back to stripping a trailing `-YYYYMMDD` snapshot
+ * suffix. Genuinely unknown models still miss (Hard Rule 5).
+ */
+function lookupPrice(model: string, prices: Prices): ModelPrice | undefined {
+  const exact = prices.models[model];
+  if (exact) return exact;
+  const alias = model.replace(/-\d{8}$/, "");
+  return alias === model ? undefined : prices.models[alias];
+}
+
+/**
  * Cost in USD rounded to 5 decimals.
  * Returns null when the model is unknown in prices.json (Hard Rule 5: the
  * record is still written, never estimated) or when usage is unavailable.
@@ -52,7 +66,7 @@ export function computeCost(
   prices: Prices = loadPrices(),
 ): number | null {
   if (tokensIn == null || tokensOut == null) return null;
-  const p = prices.models[model];
+  const p = lookupPrice(model, prices);
   if (!p) return null;
   const usd = (tokensIn * p.in_per_mtok + tokensOut * p.out_per_mtok) / 1_000_000;
   return Math.round(usd * 1e5) / 1e5;
