@@ -103,7 +103,7 @@ DoD: migration applies cleanly; `pnpm test:spec` validates example against schem
 **T2. meter-ts.** ✅ done (PR #2, merged to main)
 Proxy wrapper (non-streaming + streaming), pricing, SupabaseTransport + JsonlFallback, `record()` export. Full unit suite incl. transport-down test and unknown-model test.
 DoD: tests green; manual `@llm` smoke writes a real row.
-Status: `pnpm -F meter-ts test` → 20 passed (2 `@llm` skipped), `build` clean, `pnpm test:spec` green. Supabase write path verified live end-to-end against the real `llm_calls` table via the shipped `SupabaseTransport` (probe row inserted, read back, deleted). The real-API `@llm` smoke row is still pending — it needs `ANTHROPIC_API_KEY`, which is absent from the current environment; re-run `pnpm -F meter-ts test:llm` once it is set.
+Status: `pnpm -F meter-ts test` → 20 passed (2 `@llm` skipped), `build` clean, `pnpm test:spec` green. Supabase write path verified live end-to-end against the real `llm_calls` table via the shipped `SupabaseTransport` (probe row inserted, read back, deleted). The real-API `@llm` smoke row is still pending: Claude Code cloud sessions strip the reserved `ANTHROPIC_API_KEY` from the runtime, so it never reaches the smoke. To run it, forward the key under the unreserved alias `METER_ANTHROPIC_API_KEY` from the environment **Setup script** (`export METER_ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"`) — the smoke now reads that alias — then `pnpm -F meter-ts test:llm`.
 
 **T3. meter-py.**
 Mirror implementation; cross-validate output against `record.example.json`.

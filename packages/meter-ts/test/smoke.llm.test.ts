@@ -5,10 +5,14 @@
  *
  * Run manually (per docs/PLAN.md T2 DoD: "manual `@llm` smoke writes a real row"):
  *
- *   ANTHROPIC_API_KEY=sk-ant-... \
+ *   ANTHROPIC_API_KEY=sk-ant-... \       # or METER_ANTHROPIC_API_KEY (see below)
  *   SUPABASE_URL=https://<proj>.supabase.co \
  *   SUPABASE_ANON_KEY=<key or service-role key> \
  *   pnpm -F meter-ts test:llm
+ *
+ * Hosts that reserve/strip ANTHROPIC_API_KEY from the runtime (e.g. Claude Code
+ * cloud sessions) can forward it under the unreserved name METER_ANTHROPIC_API_KEY
+ * from the environment setup script, and this test will pick it up.
  *
  * Uses the cheapest model (claude-haiku-4-5) with a tiny max_tokens.
  */
@@ -25,8 +29,12 @@ const SUPA_KEY =
   process.env.SUPABASE_ANON_KEY ??
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 const TABLE = process.env.METER_TABLE ?? "llm_calls";
+// Some hosts (e.g. Claude Code cloud sessions) strip the reserved
+// ANTHROPIC_API_KEY from the runtime; METER_ANTHROPIC_API_KEY is an
+// unreserved alias the setup script can forward so the smoke can still run.
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? process.env.METER_ANTHROPIC_API_KEY;
 
-const HAS_CREDS = Boolean(process.env.ANTHROPIC_API_KEY && SUPA_URL && SUPA_KEY);
+const HAS_CREDS = Boolean(ANTHROPIC_KEY && SUPA_URL && SUPA_KEY);
 
 const MODEL = "claude-haiku-4-5";
 const CFG = { project: "meter", component: "ts_smoke" };
@@ -63,7 +71,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
     "@llm records a real non-streaming call",
     async () => {
       const transport = new Awaitable(new SupabaseTransport({ table: TABLE }));
-      const client = meteredClient(new Anthropic(), { ...CFG, transport });
+      const client = meteredClient(new Anthropic({ apiKey: ANTHROPIC_KEY }), { ...CFG, transport });
 
       const response = await client.messages.create({
         model: MODEL,
@@ -98,7 +106,7 @@ describe.skipIf(!HAS_CREDS)("@llm meter-ts smoke (real API + real Supabase row)"
     "@llm records a real streaming call after the stream ends",
     async () => {
       const transport = new Awaitable(new SupabaseTransport({ table: TABLE }));
-      const client = meteredClient(new Anthropic(), { ...CFG, transport });
+      const client = meteredClient(new Anthropic({ apiKey: ANTHROPIC_KEY }), { ...CFG, transport });
 
       const stream = (await client.messages.create({
         model: MODEL,
