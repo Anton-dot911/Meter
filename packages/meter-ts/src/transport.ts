@@ -38,10 +38,18 @@ export class SupabaseTransport implements Transport {
   private getClient(): SupabaseLike {
     if (this.client) return this.client;
     const url = this.opts.url ?? process.env.METER_SUPABASE_URL ?? process.env.SUPABASE_URL;
+    // Prefer a write-capable service-role key: the owner-only RLS on llm_calls
+    // rejects anon inserts, so host apps writing real rows need it. Falls back to
+    // the anon-key names for read-only / RLS-permitted setups.
     const key =
-      this.opts.key ?? process.env.METER_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
+      this.opts.key ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY ??
+      process.env.METER_SUPABASE_ANON_KEY ??
+      process.env.SUPABASE_ANON_KEY;
     if (!url || !key) {
-      throw new Error("meter: supabase transport not configured (SUPABASE_URL / SUPABASE_ANON_KEY)");
+      throw new Error(
+        "meter: supabase transport not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY | SUPABASE_ANON_KEY)",
+      );
     }
     this.client = createClient(url, key, { auth: { persistSession: false } });
     return this.client;
