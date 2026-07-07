@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { computeCost, loadPrices } from "../src/pricing.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { __resetWarnOnce, meteredClient } from "../src/meter.js";
+import {
+  __resetPricesCache,
+  __resetPricesWarnOnce,
+  computeCost,
+  loadPrices,
+} from "../src/pricing.js";
 import type { MeterRecord } from "../src/types.js";
+import { CaptureTransport, fakeClient } from "./helpers.js";
 
 const prices = loadPrices();
 const example = JSON.parse(
@@ -47,5 +54,50 @@ describe("computeCost", () => {
   it("returns null when usage is unavailable", () => {
     expect(computeCost("claude-sonnet-4-6", null, 100, prices)).toBeNull();
     expect(computeCost("claude-sonnet-4-6", 100, null, prices)).toBeNull();
+  });
+});
+
+// Hard Rule 5: a missing/unreadable price table must NOT throw and must NOT
+// drop the record — cost degrades to null while the record is still written.
+describe("pricing unavailable (Hard Rule 5)", () => {
+  afterEach(() => {
+    __resetPricesCache();
+    __resetPricesWarnOnce();
+    __resetWarnOnce();
+    delete process.env.METER_PRICES_PATH;
+  });
+
+  const withMissingPrices = <T>(fn: () => T): T => {
+    __resetPricesCache();
+    __resetPricesWarnOnce();
+    process.env.METER_PRICES_PATH = "/does/not/exist/prices.json";
+    return fn();
+  };
+
+  it("computeCost returns null instead of throwing when the table can't load", () => {
+    withMissingPrices(() => {
+      expect(computeCost("claude-sonnet-4-6", 1000, 1000)).toBeNull();
+    });
+  });
+
+  it("prices.json absent -> the call is still recorded with cost_usd null", async () => {
+    const transport = new CaptureTransport();
+    await withMissingPrices(async () => {
+      const client = meteredClient(
+        fakeClient(() => ({
+          model: "claude-haiku-4-5",
+          usage: { input_tokens: 10, output_tokens: 5 },
+          _request_id: "req_no_prices",
+        })),
+        { project: "p", component: "c", transport },
+      );
+      await client.messages.create({ model: "claude-haiku-4-5", max_tokens: 16, messages: [] });
+      await Promise.resolve();
+    });
+    expect(transport.records).toHaveLength(1);
+    expect(transport.records[0].cost_usd).toBeNull();
+    expect(transport.records[0].status).toBe("ok");
+    expect(transport.records[0].tokens_in).toBe(10);
+    expect(transport.records[0].tokens_out).toBe(5);
   });
 });
