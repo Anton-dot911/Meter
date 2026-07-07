@@ -36,14 +36,19 @@ class SupabaseTransport(Transport):
         if self._client is not None:
             return self._client
         url = self._url or os.environ.get("METER_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
+        # Prefer a write-capable service-role key: the owner-only RLS on llm_calls
+        # rejects anon inserts, so host apps writing real rows need it. Falls back
+        # to the anon-key names for read-only / RLS-permitted setups.
         key = (
             self._key
+            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
             or os.environ.get("METER_SUPABASE_ANON_KEY")
             or os.environ.get("SUPABASE_ANON_KEY")
         )
         if not url or not key:
             raise RuntimeError(
-                "meter: supabase transport not configured (SUPABASE_URL / SUPABASE_ANON_KEY)"
+                "meter: supabase transport not configured "
+                "(SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY | SUPABASE_ANON_KEY)"
             )
         # Lazy import: only required when the default transport is actually used.
         from supabase import create_client
