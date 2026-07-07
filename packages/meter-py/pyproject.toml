@@ -24,3 +24,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["meter"]
+
+# Ship the shared price table as package data so a git-dependency install (whose
+# wheel contains only the `meter` package, not the repo-root spec/) can price
+# calls. The single committed source stays spec/prices.json; this is a
+# build-time copy into the wheel, loaded via importlib.resources at runtime.
+[tool.hatch.build.targets.wheel.force-include]
+"../../spec/prices.json" = "meter/prices.json"

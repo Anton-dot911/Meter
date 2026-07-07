@@ -21,6 +21,9 @@ def example() -> dict:
 @pytest.fixture(autouse=True)
 def _reset_meter_state():
     from meter.meter import _reset_warn_once
+    from meter.pricing import _reset_prices_cache, _reset_prices_warn_once
 
     _reset_warn_once()
+    _reset_prices_warn_once()
+    _reset_prices_cache()
     yield
